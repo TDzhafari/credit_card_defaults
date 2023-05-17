@@ -1,6 +1,8 @@
 import pandas as pd
 import xlrd
 from pathlib import Path
+from sklearn import tree
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, recall_score, roc_auc_score
@@ -34,7 +36,7 @@ def describe_data(df):
 def run_model(df, model_type):
 
     # subset with independent variables
-    X = df  # .drop('default payment next month', axis=1)
+    X = df.drop('default payment next month', axis=1)
 
     # subset with dependent variable
     y = df['default payment next month']
@@ -42,34 +44,40 @@ def run_model(df, model_type):
     print(y.head().to_string())
 
     # split the data on train and test
-    x_train, y_train, x_test, y_test = train_test_split(
+    x_train, x_test, y_train, y_test = train_test_split(
         X, y, train_size=0.7)
     #y_train = y_train['default payment next month']
 
     # run logistic regression
     if model_type == 'logistic':
         log_reg = LogisticRegression(random_state=0)
-
-        # print(y_train.head().to_string())
-        print(x_train.head().to_string())
-
-        y_train = y_train['default payment next month']
-        x_train = x_train.drop('default payment next month', axis=1)
-
-        print(y_train)
-
         log_reg.fit(x_train, y_train)
-
         y_pred = log_reg.predict(x_test)
         # evaluate the accuracy of the model
-
         accuracy = accuracy_score(y_test, y_pred)
         print('Accuracy:', accuracy)
 
+    elif model_type == 'dtree':
+        dtree = tree.DecisionTreeClassifier()
+        dtree = dtree.fit(x_train, y_train)
+        y_pred = dtree.predict(x_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        print('Accuracy:', accuracy)
 
-#   used for testing purposes
+    elif model_type == 'random_forest':
+        rfc = RandomForestClassifier(n_estimators=100, criterion='gini', )
+        rfc = rfc.fit(x_train, y_train)
+        y_pred = rfc.predict(x_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        print('Accuracy:', accuracy)
+
+    elif model_type == 'xgboost':
+        pass
+
+
+        #   used for testing purposes
 if __name__ == '__main__':
 
     raw_df = read_dataframe()
     describe_data(raw_df)
-    run_model(raw_df, 'logistic')
+    run_model(raw_df, 'random_forest')
