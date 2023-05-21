@@ -5,7 +5,7 @@ from pathlib import Path
 from sklearn import tree
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score, recall_score, roc_auc_score, f1_score
 
 
@@ -71,7 +71,6 @@ def run_model(df, model_type, tune):
         # evaluate the performance on the test subset
         y_pred = dtree.predict(x_test)
 
-        # visualize the tree
         tree.plot_tree(dtree, feature_names=x_train.columns,
                        max_depth=2, filled=True)
 
@@ -83,28 +82,45 @@ def run_model(df, model_type, tune):
 
         if tune == True:
 
-            # for loop to perform hyperparameter tuning for tree depth
-            for max_d in range(1, 25):
+            # create a dict of params and values to do grid search
+            params_dt = {
+                'max_depth': [2, 3, 4, 5, 6, 7],
+                'min_samples_leaf': [0.04, 0.06, 0.08, 0.1],
+                'max_features': [0.2, 0.4, 0.6, 0.8]
+            }
 
-                # Create an instance of the tree
-                model = tree.DecisionTreeClassifier(
-                    max_depth=max_d, random_state=42,)
+            # create an instance of gridseach class add params
+            grid_dt = GridSearchCV(
+                estimator=dtree,
+                param_grid=params_dt,
+                scoring='accuracy',
+                cv=10,
+                n_jobs=-1
+            )
 
-                # train the model
-                model.fit(x_train, y_train)
-                # print out the performance measures. I'll do accuracy.
-                print('The Training Accuracy for max_depth {} is:'.format(
-                    max_d), model.score(x_train, y_train))
-                print('The Validation Accuracy for max_depth {} is:'.format(
-                    max_d), model.score(x_test, y_test))
-                print('')
+            grid_dt.fit(x_train, y_train)
+            best_hyperparams = grid_dt.best_params_
 
-            model = tree.DecisionTreeClassifier(
-                max_depth=4, random_state=42)
+            print(f'best hyperparameters are: \n {best_hyperparams}')
+            print(f'best cv accuracy: \n {grid_dt.best_score_}')
 
-            model.fit(x_train, y_train)
+            tuned_dtree = tree.DecisionTreeClassifier(
+                max_depth=best_hyperparams.get('max_depth'),
+                max_features=best_hyperparams.get('max_features'),
+                min_samples_leaf=best_hyperparams.get('min_samples_leaf'),
+                random_state=42
+            )
+
+            tuned_dtree.fit(x_train, y_train)
 
             # performance measures for tree with default parameters
+
+            # evaluate the performance on the test subset
+            y_pred = tuned_dtree.predict(x_test)
+
+            tree.plot_tree(tuned_dtree, feature_names=x_train.columns,
+                           max_depth=2, filled=True)
+
             accuracy = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred)
             print('Accuracy:', accuracy)
@@ -118,6 +134,9 @@ def run_model(df, model_type, tune):
         f1 = f1_score(y_test, y_pred)
         print('Accuracy:', accuracy)
         print('F1 score: ', f1)
+
+        if tune == True:
+            pass
 
     elif model_type == 'xgboost':
         pass
