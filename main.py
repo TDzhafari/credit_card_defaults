@@ -1,6 +1,8 @@
 import pandas as pd
 import xlrd
 import matplotlib.pyplot as plt
+from time import sleep
+from tqdm import tqdm
 from pathlib import Path
 from sklearn import tree
 from sklearn.ensemble import RandomForestClassifier
@@ -127,7 +129,7 @@ def run_model(df, model_type, tune):
             print('F1 score: ', f1)
 
     elif model_type == 'random_forest':
-        rfc = RandomForestClassifier(n_estimators=100, criterion='gini', )
+        rfc = RandomForestClassifier(n_estimators=100, criterion='gini')
         rfc = rfc.fit(x_train, y_train)
         y_pred = rfc.predict(x_test)
         accuracy = accuracy_score(y_test, y_pred)
@@ -135,8 +137,51 @@ def run_model(df, model_type, tune):
         print('Accuracy:', accuracy)
         print('F1 score: ', f1)
 
+        default_params = rfc.get_params()
+        print(f'Default params are: {default_params}')
+
         if tune == True:
-            pass
+            print('starting hp tuning')
+            rfc = RandomForestClassifier()
+            params_rf = {
+                'n_estimators': [50, 100, 200, 500],
+                'max_depth': [2, 3, 4],
+                'min_samples_leaf': [0.5, 1, 2],
+                'max_features': ['log2', 'sqrt']
+            }
+            grid_rf = GridSearchCV(
+                estimator=rfc,
+                param_grid=params_rf,
+                cv=3,
+                scoring='accuracy',
+                # verbose=1,
+                # n_jobs=-1
+            )
+            grid_rf.fit(x_train, y_train)
+
+            best_params_rf = grid_rf.best_params_
+            print(f'Best params are: {best_params_rf}')
+            print(f'Best model acc: {grid_rf.best_score_}')
+
+            tuned_rfc = RandomForestClassifier(
+                n_estimators=best_params_rf.get('n_estimators'),
+                max_depth=best_params_rf.get('max_depth'),
+                min_samples_leaf=best_params_rf.get('min_samples_leaf'),
+                max_features=best_params_rf.get('max_features'),
+                criterion='gini'
+            )
+
+            tuned_rfc.fit(x_train, y_train)
+
+            y_pred = tuned_rfc.predict(x_test)
+
+            print(f'Accuracy: {accuracy_score(y_pred, y_test)}')
+            # print(
+            #     f'AUC score: {roc_auc_score(y_pred, y_test)}')
+            accuracy = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+            print('Accuracy:', accuracy)
+            print('F1 score: ', f1)
 
     elif model_type == 'xgboost':
         pass
@@ -145,5 +190,6 @@ def run_model(df, model_type, tune):
 if __name__ == '__main__':
 
     raw_df = read_dataframe()
-    describe_data(raw_df)
-    run_model(raw_df, 'dtree', True)
+    # describe_data(raw_df)
+    run_model(raw_df, 'random_forest', True)
+    print('Done')
