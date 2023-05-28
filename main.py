@@ -1,6 +1,8 @@
 import pandas as pd
 import xlrd
 import matplotlib.pyplot as plt
+import xgboost as xgb
+import numpy as np
 from time import sleep
 from tqdm import tqdm
 from pathlib import Path
@@ -49,7 +51,6 @@ def run_model(df, model_type, tune):
     # split the data on train and test
     x_train, x_test, y_train, y_test = train_test_split(
         X, y, train_size=0.7)
-    #y_train = y_train['default payment next month']
 
     # run logistic regression
     if model_type == 'logistic':
@@ -58,9 +59,20 @@ def run_model(df, model_type, tune):
         y_pred = log_reg.predict(x_test)
         # evaluate the accuracy of the model
         accuracy = accuracy_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
+        auc = roc_auc_score(y_test, y_pred)
         print('Accuracy:', accuracy)
-        print('F1 score: ', f1)
+        print('auc:', str(auc))
+
+    elif model_type == 'xgboost':
+
+        xgb_model = xgb.XGBClassifier(
+            objective='binary:logistic', n_estimators=10, seed=123)
+        xgb_model = xgb_model.fit(x_train, y_train)
+        pred = xgb_model.predict(x_test)
+        accuracy = float(np.sum(pred == y_test))/y_test.shape[0]
+        auc = roc_auc_score(y_test, pred)
+        print("accuracy: %f" % (accuracy))
+        print("AUC: " + str(auc))
 
     elif model_type == 'dtree':
 
@@ -79,7 +91,10 @@ def run_model(df, model_type, tune):
         # performance measures for tree with default parameters
         accuracy = accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred)
-        print('Accuracy:', accuracy)
+        auc = roc_auc_score(y_test, y_pred)
+        print("accuracy: %f" % (accuracy))
+        print("AUC: " + str(auc))
+
         print('F1 score: ', f1)
 
         if tune == True:
@@ -125,29 +140,30 @@ def run_model(df, model_type, tune):
 
             accuracy = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred)
-            print('Accuracy:', accuracy)
-            print('F1 score: ', f1)
+            auc = roc_auc_score(y_test, y_pred)
+            print("accuracy: %f" % (accuracy))
+            print("AUC: " + str(auc))
 
     elif model_type == 'random_forest':
         rfc = RandomForestClassifier(n_estimators=100, criterion='gini')
         rfc = rfc.fit(x_train, y_train)
         y_pred = rfc.predict(x_test)
         accuracy = accuracy_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
-        print('Accuracy:', accuracy)
-        print('F1 score: ', f1)
+        auc = roc_auc_score(y_test, y_pred)
+        print("accuracy: %f" % (accuracy))
+        print("AUC: " + str(auc))
 
         default_params = rfc.get_params()
         print(f'Default params are: {default_params}')
 
-        if tune == True:
+        if tune == True:  # HP tuning does not improve model performance. Look into this.
             print('starting hp tuning')
             rfc = RandomForestClassifier()
             params_rf = {
-                'n_estimators': [50, 100, 200, 500],
-                'max_depth': [2, 3, 4],
+                'n_estimators': [100, 200, 250],
+                'max_depth': [4, 5],
                 'min_samples_leaf': [0.5, 1, 2],
-                'max_features': ['log2', 'sqrt']
+                'max_features': ['log2']
             }
             grid_rf = GridSearchCV(
                 estimator=rfc,
@@ -174,22 +190,15 @@ def run_model(df, model_type, tune):
             tuned_rfc.fit(x_train, y_train)
 
             y_pred = tuned_rfc.predict(x_test)
-
-            print(f'Accuracy: {accuracy_score(y_pred, y_test)}')
-            # print(
-            #     f'AUC score: {roc_auc_score(y_pred, y_test)}')
             accuracy = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred)
-            print('Accuracy:', accuracy)
-            print('F1 score: ', f1)
-
-    elif model_type == 'xgboost':
-        pass
+            auc = roc_auc_score(y_test, y_pred)
+            print("accuracy: %f" % (accuracy))
+            print("AUC: " + str(auc))
 
         #   used for testing purposes
 if __name__ == '__main__':
 
     raw_df = read_dataframe()
     # describe_data(raw_df)
-    run_model(raw_df, 'random_forest', True)
+    run_model(raw_df, 'logistic', True)
     print('Done')
